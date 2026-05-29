@@ -1,104 +1,262 @@
-# Simulador de Otimização MPPT para Turbina Eólica
+# 🌬️ Simulador de Otimização MPPT para Turbina Eólica
 
-Este projeto é um ambiente de simulação desenvolvido para avaliar e 
-otimizar estratégias de Maximum Power Point Tracking (MPPT) para uma 
-turbina eólica virtual. Ele compara uma configuração de MPPT "padrão de 
-fábrica" contra uma curva otimizada dinamicamente gerada via simulação 
-de controle PID.
+Este projeto implementa um ambiente de simulação para avaliação e otimização de estratégias de **Maximum Power Point Tracking (MPPT)** aplicadas a uma turbina eólica virtual.
 
-## 🚀 Visão Geral
+O sistema compara uma configuração de MPPT **original de fábrica** com uma curva **otimizada dinamicamente** gerada por simulação utilizando controle PID.
 
-O sistema modela o comportamento eletromecânico de uma turbina eólica e 
-executa um processo de simulação em três fases para determinar a relação 
-ideal entre a tensão e a corrente da turbina para extração máxima de energia.
+---
 
-### Objetivos Principais
+# 🚀 Visão Geral
 
-* Otimização de Parâmetros: Uso de um controlador PID para "aprender" a 
-  curva de carga ideal (V vs. I) para o hardware específico da turbina.
-* Benchmarking de Desempenho: Comparar a eficiência (Cp) e a saída de 
-  energia total (Wh) do hardware em relação aos parâmetros originais.
-* Análise Visual: Geração de gráficos comparativos para visualizar 
-  potência, RPM e rastreamento do coeficiente de desempenho (Cp).
+O simulador modela o comportamento eletromecânico de uma turbina eólica e executa um processo em **três fases principais** para determinar a relação ideal entre tensão e corrente (`V x I`) visando a máxima extração de potência.
 
-## 🛠️ Pré-requisitos
+## 🎯 Objetivos
 
-Para executar esta simulação, certifique-se de que seu ambiente Python 
-esteja configurado com as seguintes dependências:
+* Otimizar parâmetros MPPT usando controle PID
+* Aprender automaticamente a curva ideal de carga da turbina
+* Comparar desempenho entre configuração original e otimizada
+* Avaliar eficiência aerodinâmica (`Cp`)
+* Gerar gráficos comparativos de potência, RPM e rastreamento de desempenho
 
-* numpy
-* matplotlib
-* dataclasses (Biblioteca padrão)
+---
 
-Você também precisará dos dois módulos personalizados referenciados no 
-script no mesmo diretório:
-* modelo_aerogerador.py (Contém a classe TurbinaVirtual)
-* pid_module.py (Contém a classe PIDController)
+# 🛠️ Pré-requisitos
 
-### Instalação
+O projeto requer Python 3 e as seguintes bibliotecas:
+
+* `numpy`
+* `matplotlib`
+
+A biblioteca `dataclasses` já está incluída nas versões modernas do Python.
+
+## 📦 Instalação
 
 ```bash
 pip install numpy matplotlib
-🏗️ Arquitetura do Projeto
-A simulação segue uma lógica de execução estruturada em 3 fases:
+```
 
-Fase 1 (Otimização): Um PIDController regula ativamente a carga para
-manter a Razão de Velocidade da Ponta (TSR) ideal. O sistema registra
-esses estados "ideais" e deriva uma nova curva U x I usando regressão
-polinomial.
+---
 
-Fase 2 (Linha de Base): A simulação é executada usando os parâmetros
-de hardware originais (hardcoded) para estabelecer uma base de
-desempenho.
+# 📁 Estrutura do Projeto
 
-Fase 3 (Otimizada): A simulação é executada novamente, substituindo
-os parâmetros originais pela curva derivada na Fase 1 para calcular
-os ganhos potenciais de energia.
+Certifique-se de que os seguintes arquivos estejam no mesmo diretório:
 
-🏃‍♂️ Como Executar
-Certifique-se de que todos os arquivos do projeto estejam no mesmo
-diretório.
+```text
+.
+├── main.py
+├── modelo_aerogerador.py
+├── pid_module.py
+└── README.md
+```
+
+## 📌 Descrição dos Módulos
+
+### `modelo_aerogerador.py`
+
+Contém a implementação da classe:
+
+```python
+TurbinaVirtual
+```
+
+Responsável pela modelagem física e eletromecânica da turbina.
+
+### `pid_module.py`
+
+Contém a implementação da classe:
+
+```python
+PIDController
+```
+
+Responsável pelo controle dinâmico de carga e rastreamento do ponto ótimo de operação.
+
+---
+
+# 🏗️ Arquitetura da Simulação
+
+A execução é dividida em três fases:
+
+---
+
+## 🔹 Fase 1 — Otimização MPPT
+
+Um controlador PID regula dinamicamente a carga elétrica da turbina para manter a:
+
+* TSR ideal (*Tip Speed Ratio*)
+* máxima eficiência aerodinâmica (`Cp`)
+
+Durante essa etapa:
+
+* os pontos ótimos de operação são registrados;
+* uma nova curva `U x I` é derivada;
+* é realizada regressão polinomial para aproximar a curva ótima.
+
+---
+
+## 🔹 Fase 2 — Linha de Base (Original)
+
+A simulação é executada utilizando:
+
+* parâmetros MPPT originais;
+* curva de hardware padrão (*hardcoded*).
+
+Essa etapa serve como referência de desempenho.
+
+---
+
+## 🔹 Fase 3 — Configuração Otimizada
+
+A nova curva obtida na Fase 1 substitui os parâmetros originais.
+
+O sistema então calcula:
+
+* potência gerada;
+* energia acumulada;
+* eficiência comparativa;
+* ganho percentual de desempenho.
+
+---
+
+# ▶️ Como Executar
 
 Execute o script principal:
 
-Bash
+```bash
 python main.py
-Siga as instruções interativas no terminal:
+```
 
-Raio da Turbina: Especifique o raio da turbina em metros.
+---
 
-Relação de Transmissão: Defina a relação da caixa de engrenagens.
+# ⚙️ Parâmetros da Simulação
 
-Tempo de Emulação: Duração total da simulação em segundos.
+Durante a execução, o terminal solicitará:
 
-Perfil de Vento: Escolha entre RAMPA, ESCADA ou CONSTANTE.
+| Parâmetro                  | Descrição                                       |
+| -------------------------- | ----------------------------------------------- |
+| **Raio da Turbina**        | Raio das pás em metros                          |
+| **Relação de Transmissão** | Relação da caixa multiplicadora                 |
+| **Tempo de Emulação**      | Duração total da simulação                      |
+| **Perfil de Vento**        | Tipo de vento: `RAMPA`, `ESCADA` ou `CONSTANTE` |
 
-📊 Resultados
-Após a conclusão, o script fornece:
+---
 
-Logs no Console: Energia total produzida (em Wh) tanto para a
-configuração original quanto para a otimizada.
+# 📊 Resultados Gerados
 
-Gráficos Matplotlib:
+Após a simulação, o sistema fornece:
 
-Curvas MPPT: Comparação U x I.
+## 📋 Logs no Console
 
-Rastreamento Cinético: Comparação de RPM contra o alvo ideal.
+* Energia total produzida (`Wh`)
+* Comparação entre:
 
-Potência de Saída: Comparação direta de geração de energia.
+  * configuração original
+  * configuração otimizada
 
-Coeficiente de Desempenho (Cp): Análise de eficiência em comparação
-ao limite teórico de Betz (Cp, max ≈ 0.593).
+---
 
-💡 Solução de Problemas
-Erros de Fitting: Se a Fase 1 falhar ao gerar uma curva, o script
-retorna para V_ORIGINAL e R_ORIGINAL. Certifique-se de que os valores
-de threshold_I e threshold_V na função extrair_curva_otima_com_filtro
-sejam apropriados para a escala do seu hardware.
+## 📈 Gráficos Matplotlib
 
-Dependências: Se receber um erro ModuleNotFoundError, verifique se
-modelo_aerogerador.py e pid_module.py estão localizados no seu
-PYTHONPATH ou no mesmo diretório do script principal.
+### 🔸 Curvas MPPT
 
-Este projeto serve como uma ferramenta de pesquisa para avaliar a
-eficiência de pequenas turbinas eólicas e o ajuste de controladores MPPT.
+Comparação entre:
+
+* curva original
+* curva otimizada (`V x I`)
+
+---
+
+### 🔸 Rastreamento Cinético
+
+Comparação entre:
+
+* RPM real
+* RPM alvo ideal
+
+---
+
+### 🔸 Potência de Saída
+
+Comparação direta da potência gerada ao longo do tempo.
+
+---
+
+### 🔸 Coeficiente de Desempenho (`Cp`)
+
+Avaliação da eficiência aerodinâmica da turbina em relação ao:
+
+```text
+Limite de Betz ≈ 0.593
+```
+
+---
+
+# 🧠 Conceitos Utilizados
+
+* MPPT (*Maximum Power Point Tracking*)
+* Controle PID
+* TSR (*Tip Speed Ratio*)
+* Regressão Polinomial
+* Modelagem Eletromecânica
+* Eficiência Aerodinâmica
+* Simulação Dinâmica
+
+---
+
+# 💡 Solução de Problemas
+
+## ❌ Erros na Geração da Curva
+
+Caso a Fase 1 falhe ao gerar a curva otimizada:
+
+* o sistema retorna automaticamente para:
+
+  * `V_ORIGINAL`
+  * `R_ORIGINAL`
+
+Verifique os parâmetros:
+
+```python
+threshold_I
+threshold_V
+```
+
+na função:
+
+```python
+extrair_curva_otima_com_filtro()
+```
+
+Os valores devem ser compatíveis com a escala elétrica do hardware modelado.
+
+---
+
+## ❌ ModuleNotFoundError
+
+Certifique-se de que os arquivos:
+
+* `modelo_aerogerador.py`
+* `pid_module.py`
+
+estejam:
+
+* no mesmo diretório do `main.py`; ou
+* configurados no `PYTHONPATH`.
+
+---
+
+# 🔬 Aplicações
+
+Este projeto pode ser utilizado para:
+
+* pesquisa acadêmica;
+* análise de eficiência energética;
+* desenvolvimento de algoritmos MPPT;
+* testes de controle PID;
+* estudo de pequenas turbinas eólicas.
+
+---
+
+# 📜 Licença
+
+Este projeto é destinado a fins educacionais e de pesquisa.
