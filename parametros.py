@@ -27,8 +27,8 @@ pontos_r_inversor_hibrido = pontos_v_inversor_hibrido/pontos_i_inversor_hibrido
 # =============================================================================
 
 # apenas para isolar o comportamento do motor/gerador de bancada,
-COEFICIENTE_ATRITO_TURBINA = 0.02
-INERCIA_TURBINA_KG_M2 = 20.0
+COEFICIENTE_ATRITO_TURBINA = 0.0
+INERCIA_TURBINA_KG_M2 = 0.0
 
 DENSIDADE_AR_KG_M3 = 1.2754
 RAIO_TURBINA_METROS = 2.5 # escolha
@@ -58,4 +58,3 @@ PERFIL_VENTO = 'RAMPA'
 from numpy import load
 VETOR_VENTO_M_S = load('vetor_vento.npy')
 vento_constante = 5
-

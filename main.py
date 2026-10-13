@@ -9,7 +9,7 @@ from pid_module import PIDController
 # ==================================================================================
 # PARÂMETROS FIXOS (Eletromecânicos da Bancada/Hardware)
 # ==================================================================================
-CONST_VEL = 2.675717 
+CONST_VEL = 2.675717
 OFFSET_FEM = 9.5104 
 TORQUE_MAX = 79.63 
 COEF_ATRITO_GERADOR = 0.001885
@@ -18,8 +18,8 @@ TAXA_RPM_MAX = 100
 TAU_ARMADURA = 0.03
 CAPACITANCIA_BARRAMENTO = 0.007
 INERCIA_GERADOR = 2 * COEF_ATRITO_GERADOR
-COEF_ATRITO_TURBINA = 0.02
-INERCIA_TURBINA = 20.0
+COEF_ATRITO_TURBINA = 0.0
+INERCIA_TURBINA = 0.0
 DENSIDADE_AR = 1.2754
 VEL_MAX_PITCH = 5.0
 TEMPO_ESPERA_LIGAR = 5.0
@@ -59,9 +59,9 @@ def extrair_curva_otima_grau_n(registros, grau_n=10):
     I = registros.corrente[:s]
 
     novo_threshold_I = 0.001  
-    novo_threshold_V = 50.0 
+    novo_threshold_V = 30.0 
     
-    limite_superior_V = 800.0
+    limite_superior_V = 350.0
     limite_superior_I = 16.5
 
     mask = (V > novo_threshold_V) & (I > novo_threshold_I)
@@ -93,7 +93,7 @@ def extrair_curva_otima_grau_n(registros, grau_n=10):
         return None, None, None
     
 
-def obter_vento(tempo, perfil, v_constante, tempo_total, v_pico=10.0):
+def obter_vento(tempo, perfil, v_constante, tempo_total, v_pico=5.0):
     if perfil == 'CONSTANTE': 
         return v_constante
         
@@ -129,7 +129,7 @@ def executar_fase_pid(config: ConfigEnsaio):
         modelo_coeficiente_potencia='classico', densidade_ar_kg_m3=DENSIDADE_AR, sinal_controle_mppt='corrente de carga'
     )
 
-    pid = PIDController(kp=5.0, ki=1.0, kd=0.0, out_min=0, out_max=16.5)
+    pid = PIDController(kp=2.0, ki=1.0, kd=0.0, out_min=0, out_max=16.5)
     reg = RegistroDeSimulacao(config.tempo, PASSO_SIMULACAO)
     t = 0.0
     corrente_filtro = 0.0
@@ -218,52 +218,100 @@ def executar_malha_aberta(config: ConfigEnsaio, v_tabela, r_tabela, nome_fase):
     print(f">> Concluído. Energia Total: {energia_wh:.3f} Wh")
     return reg, energia_wh
 
-def plotar_comparativo(reg_orig, reg_opt, reg_pid, en_orig, en_opt, v_opt, i_opt):
-    print("\nGerando Gráficos...")
-    plt.style.use('default')
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+
+# =============================================================================
+# ESTILO GLOBAL (mesmo do gerar_plots.py do artigo)
+# =============================================================================
+def configurar_estilo():
+    rcParams.update({
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "Nimbus Roman", "DejaVu Serif"],
+        "mathtext.fontset": "cm",
+        "font.size": 10,
+        "axes.titlesize": 10,
+        "axes.labelsize": 9.5,
+        "legend.fontsize": 8,
+        "xtick.labelsize": 8.5,
+        "ytick.labelsize": 8.5,
+        "lines.linewidth": 1.2,
+        "axes.grid": True,
+        "grid.linewidth": 0.5,
+        "grid.alpha": 0.5,
+        "axes.linewidth": 0.8,
+        "legend.frameon": True,
+        "legend.framealpha": 0.9,
+        "legend.edgecolor": "0.8",
+        "legend.borderpad": 0.4,
+        "legend.handlelength": 1.6,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.03,
+    })
+
+# Paleta (a mesma do artigo)
+COR_ORIGINAL   = "#1F5FBF"   # azul: tabela de fábrica (mesmo tom de "Referência")
+COR_OTIMIZADA  = "#2E7D32"   # verde: tabela otimizada (mesmo tom do Gêmeo em potência)
+COR_VARREDURA  = "0.65"      # cinza: dados brutos da varredura PI
+COR_SENSOR     = "black"
+
+
+def _fig_width(largura_relativa=1.0):
+    largura_textwidth_cm = 16.5
+    return (largura_textwidth_cm * largura_relativa) / 2.54
+
+
+def _fmt(x, casas=2):
+    """Formata com vírgula decimal (padrão do texto do artigo)."""
+    return f"{x:.{casas}f}".replace(".", ",")
+
+
+def plotar_otimizador(reg_orig, reg_opt, reg_pid, en_orig, en_opt,
+                      v_opt, i_opt, v_original, i_original,
+                      nome_arquivo="otimizador_energia_iv.pdf"):
+    """
+    Figura de 2 painéis no estilo do artigo:
+      (esq.) curva V x I: varredura PI, tabela original e tabela otimizada (12 pontos)
+      (dir.) potência elétrica útil no tempo, com a energia acumulada [Wh] na legenda
+    """
+    configurar_estilo()
     s = reg_orig.idx_sim
     t = reg_orig.tempo[:s]
     s_pid = reg_pid.idx_sim
+    ganho = 100.0 * (en_opt / en_orig - 1.0)
 
-    fig, axs = plt.subplots(2, 2, figsize=(14, 8))
-    fig.suptitle('Análise Comparativa: Tabela Original vs. Tabela Otimizada', fontsize=16, fontweight='bold')
+    fig, (ax_iv, ax_pot) = plt.subplots(
+        1, 2, figsize=(_fig_width(1.0), 2.8),
+        gridspec_kw={"width_ratios": [1, 1.15]}, constrained_layout=True
+    )
 
-    axs[0, 0].scatter(reg_pid.tensoes_barramento_volts[:s_pid], reg_pid.corrente[:s_pid], 
-                        color='orange', s=1, alpha=0.4, label='Varrredura Completa PI (Dados Brutos)')
-    
-    axs[0, 0].plot(V_ORIGINAL, I_ORIGINAL, marker='o', label='Curva Original (Tabela Inversor)', color='blue', lw=2)
-    axs[0, 0].plot(v_opt, i_opt, marker='s', label='Curva Ajustada Grau N (12 pontos)', color='green', lw=2.5)
-    
-    axs[0, 0].set_title('Curvas de MPPT (U x I)')
-    axs[0, 0].set_xlabel('Tensão [V]')
-    axs[0, 0].set_ylabel('Corrente [A]')
-    axs[0, 0].legend()
-    axs[0, 0].grid(True, ls='--')
+    # --- Painel 1: Corrente x Tensão ---------------------------------------
+    passo = 5  # subamostra a varredura para manter o PDF leve
+    ax_iv.scatter(reg_pid.tensoes_barramento_volts[:s_pid:passo], reg_pid.corrente[:s_pid:passo],
+                  s=1.5, color=COR_VARREDURA, alpha=0.5, rasterized=True, label="Varredura PI")
+    ax_iv.plot(v_original, i_original, color=COR_ORIGINAL, marker="o", ms=3.2, lw=1.2, label="Original")
+    ax_iv.plot(v_opt, i_opt, color=COR_OTIMIZADA, marker="s", ms=3.2, lw=1.2, label="Otimizada")
+    ax_iv.set_xlabel("Tensão [V]")
+    ax_iv.set_ylabel("Corrente [A]")
+    ax_iv.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=3)
 
-    axs[0, 1].plot(t, reg_orig.rpm[:s], label='RPM (Original)', color='blue')
-    axs[0, 1].plot(t, reg_opt.rpm[:s], label='RPM (Otimizada)', color='green')
-    axs[0, 1].plot(t, reg_orig.rpm_ideal[:s], 'r:', label='RPM Ideal')
-    axs[0, 1].set_title('Acompanhamento Cinético')
-    axs[0, 1].set_ylabel('Velocidade')
-    axs[0, 1].legend(); axs[0, 1].grid(True, ls='--')
+    # --- Painel 2: Potência útil e energia ---------------------------------
+    ax_pot.plot(t, reg_orig.pot_entregue[:s], color=COR_ORIGINAL, lw=1.1,
+                label=f"Original ({_fmt(en_orig)} Wh)")
+    ax_pot.plot(t, reg_opt.pot_entregue[:s], color=COR_OTIMIZADA, lw=1.1,
+                label=f"Otimizada ({_fmt(en_opt)} Wh)")
+    ax_pot.fill_between(t, reg_orig.pot_entregue[:s], reg_opt.pot_entregue[:s],
+                        color=COR_OTIMIZADA, alpha=0.15, lw=0)
+    ax_pot.set_xlabel("Tempo [s]")
+    ax_pot.set_ylabel("Potência útil [W]")
+    ax_pot.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=2)
 
-    axs[1, 0].plot(t, reg_orig.pot_entregue[:s], label=f'Original ({en_orig:.2f} Wh)', color='blue', lw=1.5)
-    axs[1, 0].plot(t, reg_opt.pot_entregue[:s], label=f'Otimizada ({en_opt:.2f} Wh)', color='green', lw=1.5)
-    axs[1, 0].fill_between(t, reg_orig.pot_entregue[:s], reg_opt.pot_entregue[:s], color='lightgreen', alpha=0.3)
-    axs[1, 0].set_title('Potência Elétrica Útil')
-    axs[1, 0].set_xlabel('Tempo [s]'); axs[1, 0].set_ylabel('Potência [W]')
-    axs[1, 0].legend(); axs[1, 0].grid(True, ls='--')
-
-    axs[1, 1].plot(t, reg_orig.cp[:s], label='Cp Original', color='blue', alpha=0.8)
-    axs[1, 1].plot(t, reg_opt.cp[:s], label='Cp Otimizado', color='green', alpha=0.8)
-    axs[1, 1].axhline(0.593, color='r', ls='--', label='Limite Betz')
-    axs[1, 1].set_ylim(0, 0.7)
-    axs[1, 1].set_title('Coeficiente de Potência (Cp)')
-    axs[1, 1].set_xlabel('Tempo [s]'); axs[1, 1].set_ylabel('Cp')
-    axs[1, 1].legend(); axs[1, 1].grid(True, ls='--')
-
-    plt.tight_layout()
-    plt.show()
+    fig.align_ylabels()
+    fig.savefig(nome_arquivo, format="pdf")
+    plt.close(fig)
+    print(f"Figura salva em: {nome_arquivo}  (ganho de energia: {_fmt(ganho)}%)")
 
 if __name__ == "__main__":
     print("======================================================")
@@ -295,7 +343,7 @@ if __name__ == "__main__":
         reg_orig, en_orig = executar_malha_aberta(config, V_ORIGINAL, R_ORIGINAL, "FASE 2/3 parametros originais")
         reg_opt, en_opt = executar_malha_aberta(config, v_opt, r_opt, "FASE 3/3 parametros modificados")
         
-        plotar_comparativo(reg_orig, reg_opt, reg_pid, en_orig, en_opt, v_opt, i_opt)
+        plotar_otimizador(reg_orig, reg_opt, reg_pid, en_orig, en_opt, v_opt, i_opt,V_ORIGINAL,I_ORIGINAL)
 
     except ValueError:
         print("\n[ERRO] Valor inserido invalido. A simulacao precisa de numeros nas configuracoes.")
